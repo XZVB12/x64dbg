@@ -45,6 +45,8 @@ public slots:
     void setBookmarkSlot();
     void toggleFunctionSlot();
     void toggleArgumentSlot();
+    void addLoopSlot();
+    void deleteLoopSlot();
     void assembleSlot();
     void gotoExpressionSlot();
     void gotoFileOffsetSlot();
@@ -105,7 +107,6 @@ public slots:
     void setEncodeTypeRangeSlot();
     void graphSlot();
     void analyzeModuleSlot();
-    //void togglePreviewSlot();
     void createThreadSlot();
     void copyTokenTextSlot();
     void copyTokenValueSlot();
@@ -116,6 +117,7 @@ protected:
     void paintEvent(QPaintEvent* event) override;
 
 private:
+    int findDeepestLoopDepth(duint addr);
     bool getLabelsFromInstruction(duint addr, QSet<QString> & labels);
     bool getTokenValueText(QString & text);
 

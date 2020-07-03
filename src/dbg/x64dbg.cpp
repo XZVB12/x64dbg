@@ -403,6 +403,7 @@ static void registercommands()
     dbgcmdnew("AddFavouriteToolShortcut,SetFavouriteToolShortcut", cbInstrSetFavToolShortcut, false); //set favourite tool shortcut
     dbgcmdnew("FoldDisassembly", cbInstrFoldDisassembly, true); //fold disassembly segment
     dbgcmdnew("guiupdatetitle", cbDebugUpdateTitle, true); // set relevant disassembly title
+    dbgcmdnew("showref", cbShowReferences, false); // show references window
 
     //misc
     dbgcmdnew("chd", cbInstrChd, false); //Change directory
@@ -442,6 +443,7 @@ static void registercommands()
     dbgcmdnew("printstack,logstack", cbInstrPrintStack, true); //print the call stack
     dbgcmdnew("flushlog", cbInstrFlushlog, false); //flush the log
     dbgcmdnew("AnimateWait", cbInstrAnimateWait, true); //Wait for the debuggee to pause.
+    dbgcmdnew("dbdecompress", cbInstrDbdecompress, false); //Decompress a database.
 };
 
 bool cbCommandProvider(char* cmd, int maxlen)
@@ -630,6 +632,10 @@ extern "C" DLL_EXPORT const char* _dbg_dbginit()
     while(szProgramDir[len] != '\\')
         len--;
     szProgramDir[len] = 0;
+
+    strcpy_s(szDllLoaderPath, szProgramDir);
+    strcat_s(szDllLoaderPath, "\\loaddll.exe");
+
 #ifdef ENABLE_MEM_TRACE
     strcpy_s(alloctrace, szProgramDir);
     strcat_s(alloctrace, "\\alloctrace.txt");

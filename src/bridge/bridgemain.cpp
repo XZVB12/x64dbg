@@ -803,8 +803,10 @@ BRIDGE_IMPEXP bool DbgLoopGet(int depth, duint addr, duint* start, duint* end)
     info.depth = depth;
     if(!_dbg_sendmessage(DBG_LOOP_GET, &info, 0))
         return false;
-    *start = info.start;
-    *end = info.end;
+    if(start)
+        *start = info.start;
+    if(end)
+        *end = info.end;
     return true;
 }
 
@@ -1733,6 +1735,11 @@ BRIDGE_IMPEXP void GuiExecuteOnGuiThreadEx(GUICALLBACKEX cbGuiThread, void* user
 BRIDGE_IMPEXP void GuiGetCurrentGraph(BridgeCFGraphList* graphList)
 {
     _gui_sendmessage(GUI_GET_CURRENT_GRAPH, graphList, nullptr);
+}
+
+BRIDGE_IMPEXP void GuiShowReferences()
+{
+    _gui_sendmessage(GUI_SHOW_REF, 0, 0);
 }
 
 BOOL WINAPI DllMain(HINSTANCE hinstDLL, DWORD fdwReason, LPVOID lpvReserved)
