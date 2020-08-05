@@ -52,6 +52,7 @@
 #include "AboutDialog.h"
 #include "UpdateChecker.h"
 #include "Tracer/TraceBrowser.h"
+#include "Tracer/TraceWidget.h"
 
 MainWindow::MainWindow(QWidget* parent)
     : QMainWindow(parent),
@@ -201,22 +202,16 @@ MainWindow::MainWindow(QWidget* parent)
     mHandlesView->setWindowTitle(tr("Handles"));
     mHandlesView->setWindowIcon(DIcon("handles.png"));
 
-    // Graph view
-    mGraphView = new DisassemblerGraphView(this);
-    mGraphView->setWindowTitle(tr("Graph"));
-    mGraphView->setWindowIcon(DIcon("graph.png"));
-
     // Trace view
-    mTraceBrowser = new TraceBrowser(this);
-    mTraceBrowser->setWindowTitle(tr("Trace"));
-    mTraceBrowser->setWindowIcon(DIcon("trace.png"));
-    connect(mTraceBrowser, SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
+    mTraceWidget = new TraceWidget(this);
+    mTraceWidget->setWindowTitle(tr("Trace"));
+    mTraceWidget->setWindowIcon(DIcon("trace.png"));
+    connect(mTraceWidget->getTraceBrowser(), SIGNAL(displayReferencesWidget()), this, SLOT(displayReferencesWidget()));
 
     mTabWidget = new MHTabWidget(this, true, true);
 
     // Add all widgets to the list
     mWidgetList.push_back(WidgetInfo(mCpuWidget, "CPUTab"));
-    mWidgetList.push_back(WidgetInfo(mGraphView, "GraphTab"));
     mWidgetList.push_back(WidgetInfo(mLogView, "LogTab"));
     mWidgetList.push_back(WidgetInfo(mNotesManager, "NotesTab"));
     mWidgetList.push_back(WidgetInfo(mBreakpointsView, "BreakpointsTab"));
@@ -229,7 +224,7 @@ MainWindow::MainWindow(QWidget* parent)
     mWidgetList.push_back(WidgetInfo(mReferenceManager, "ReferencesTab"));
     mWidgetList.push_back(WidgetInfo(mThreadView, "ThreadsTab"));
     mWidgetList.push_back(WidgetInfo(mHandlesView, "HandlesTab"));
-    mWidgetList.push_back(WidgetInfo(mTraceBrowser, "TraceTab"));
+    mWidgetList.push_back(WidgetInfo(mTraceWidget, "TraceTab"));
 
     // If LoadSaveTabOrder disabled, load tabs in default order
     if(!ConfigBool("Gui", "LoadSaveTabOrder"))
@@ -1065,6 +1060,7 @@ void MainWindow::updateWindowTitleSlot(QString filename)
 void MainWindow::displayCpuWidget()
 {
     showQWidgetTab(mCpuWidget);
+    mCpuWidget->setDisasmFocus();
 }
 
 void MainWindow::displaySymbolWidget()
@@ -1089,7 +1085,8 @@ void MainWindow::displayThreadsWidget()
 
 void MainWindow::displayGraphWidget()
 {
-    showQWidgetTab(mGraphView);
+    showQWidgetTab(mCpuWidget);
+    mCpuWidget->setGraphFocus();
 }
 
 void MainWindow::displayPreviousTab()
@@ -1517,7 +1514,7 @@ void MainWindow::setNameMenu(int hMenu, QString name)
 void MainWindow::runSelection()
 {
     if(DbgIsDebugging())
-        DbgCmdExec(("run " + ToPtrString(mGraphView->hasFocus() ? mGraphView->get_cursor_pos() : mCpuWidget->getDisasmWidget()->getSelectedVa())).toUtf8().constData());
+        DbgCmdExec(("run " + ToPtrString(mCpuWidget->getSelectionVa())).toUtf8().constData());
 }
 
 void MainWindow::runExpression()
@@ -1601,7 +1598,7 @@ void MainWindow::displaySEHChain()
 
 void MainWindow::displayRunTrace()
 {
-    showQWidgetTab(mTraceBrowser);
+    showQWidgetTab(mTraceWidget);
 }
 
 void MainWindow::donate()
