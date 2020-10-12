@@ -74,7 +74,6 @@ DisassemblerGraphView::DisassemblerGraphView(QWidget* parent)
     connect(Bridge::getBridge(), SIGNAL(updateGraph()), this, SLOT(updateGraphSlot()));
     connect(Bridge::getBridge(), SIGNAL(selectionGraphGet(SELECTIONDATA*)), this, SLOT(selectionGetSlot(SELECTIONDATA*)));
     connect(Bridge::getBridge(), SIGNAL(disassembleAt(dsint, dsint)), this, SLOT(disassembleAtSlot(dsint, dsint)));
-    connect(Bridge::getBridge(), SIGNAL(focusGraph()), this, SLOT(setFocus()));
     connect(Bridge::getBridge(), SIGNAL(getCurrentGraph(BridgeCFGraphList*)), this, SLOT(getCurrentGraphSlot(BridgeCFGraphList*)));
     connect(Bridge::getBridge(), SIGNAL(dbgStateChanged(DBGSTATE)), this, SLOT(dbgStateChangedSlot(DBGSTATE)));
 
@@ -414,6 +413,7 @@ void DisassemblerGraphView::paintNormal(QPainter & p, QRect & viewportRect, int 
                         QRectF bpRect(x - rectSize / 3.0, y + (this->charHeight - rectSize) / 2.0, rectSize, rectSize);
 
                         bool isbp = DbgGetBpxTypeAt(instr.addr) != bp_none;
+                        bool isbookmark = DbgGetBookmarkAt(instr.addr);
                         bool isbpdisabled = DbgIsBpDisabled(instr.addr);
                         bool iscip = instr.addr == mCip;
 
@@ -430,6 +430,20 @@ void DisassemblerGraphView::paintNormal(QPainter & p, QRect & viewportRect, int 
                             }
 
                             p.fillRect(bpRect, isbp ? mBreakpointColor : mDisabledBreakpointColor);
+                        }
+                        else if(isbookmark)
+                        {
+                            if(iscip)
+                            {
+                                // Left half is cip
+                                bpRect.setWidth(bpRect.width() / 2);
+                                p.fillRect(bpRect, mCipColor);
+
+                                // Right half is breakpoint
+                                bpRect.translate(bpRect.width(), 0);
+                            }
+
+                            p.fillRect(bpRect, mBookmarkBackgroundColor);
                         }
                         else if(iscip)
                             p.fillRect(bpRect, mCipColor);
@@ -1129,6 +1143,9 @@ void DisassemblerGraphView::mouseMoveEvent(QMouseEvent* event)
 
 void DisassemblerGraphView::mouseReleaseEvent(QMouseEvent* event)
 {
+    // Bring the user back to disassembly if the user is stuck in an empty graph view (Alt+G)
+    if((!this->ready || !DbgIsDebugging()) && (event->button() == Qt::LeftButton || event->button() == Qt::BackButton))
+        GuiFocusView(GUI_DISASSEMBLY);
     this->viewport()->update();
 
     if(event->button() == Qt::ForwardButton)
@@ -1161,7 +1178,7 @@ void DisassemblerGraphView::mouseDoubleClickEvent(QMouseEvent* event)
         if(!mHistoryLock)
             mHistory.addVaToHistory(instr);
 
-        DbgCmdExec(QString("graph dis.branchdest(%1), silent").arg(ToPtrString(instr)).toUtf8().constData());
+        DbgCmdExec(QString("graph dis.branchdest(%1), silent").arg(ToPtrString(instr)));
     }
 }
 
@@ -2183,6 +2200,7 @@ void DisassemblerGraphView::setupContextMenu()
 
     mMenuBuilder->addAction(makeShortcutAction(DIcon("comment.png"), tr("&Comment"), SLOT(setCommentSlot()), "ActionSetComment"), zoomActionHelperNonZero);
     mMenuBuilder->addAction(makeShortcutAction(DIcon("label.png"), tr("&Label"), SLOT(setLabelSlot()), "ActionSetLabel"), zoomActionHelperNonZero);
+    mMenuBuilder->addAction(makeShortcutAction(DIcon("bookmark_toggle.png"), tr("Toggle Bookmark"), SLOT(setBookmarkSlot()), "ActionToggleBookmark"));
     mMenuBuilder->addAction(makeShortcutAction(DIcon("xrefs.png"), tr("Xrefs..."), SLOT(xrefSlot()), "ActionXrefs"), zoomActionHelperNonZero);
 
     MenuBuilder* gotoMenu = new MenuBuilder(this);
@@ -2268,7 +2286,8 @@ void DisassemblerGraphView::setupContextMenu()
     gotoMenu->addSeparator();
     gotoMenu->addBuilder(childrenAndParentMenu);
     mMenuBuilder->addMenu(makeMenu(DIcon("goto.png"), tr("Go to")), gotoMenu);
-
+    mMenuBuilder->addAction(makeShortcutAction(DIcon("helpmnemonic.png"), tr("Help on mnemonic"), SLOT(mnemonicHelpSlot()), "ActionHelpOnMnemonic"));
+    mMenuBuilder->addSeparator();
     auto ifgraphZoomMode = [this](QMenu*)
     {
         return graphZoomMode;
@@ -2276,8 +2295,6 @@ void DisassemblerGraphView::setupContextMenu()
 
     mMenuBuilder->addAction(mZoomToCursor = makeShortcutAction(DIcon("zoom.png"), tr("&Zoom 100%"), SLOT(zoomToCursorSlot()), "ActionGraphZoomToCursor"), ifgraphZoomMode);
     mMenuBuilder->addAction(mFitToWindow = makeShortcutAction(DIcon("fit.png"), tr("&Fit to window"), SLOT(fitToWindowSlot()), "ActionGraphFitToWindow"), ifgraphZoomMode);
-
-    mMenuBuilder->addSeparator();
     mMenuBuilder->addAction(mToggleOverview = makeShortcutAction(DIcon("graph.png"), tr("&Overview"), SLOT(toggleOverviewSlot()), "ActionGraphToggleOverview"), ifgraphZoomMode);
     mToggleOverview->setCheckable(true);
     mMenuBuilder->addAction(mToggleSummary = makeShortcutAction(DIcon("summary.png"), tr("S&ummary"), SLOT(toggleSummarySlot()), "ActionGraphToggleSummary"));
@@ -2330,25 +2347,25 @@ void DisassemblerGraphView::keyPressEvent(QKeyEvent* event)
         return;
     int key = event->key();
     if(key == Qt::Key_Up)
-        DbgCmdExec(QString("graph dis.prev(%1), silent").arg(ToPtrString(cur_instr)).toUtf8().constData());
+        DbgCmdExec(QString("graph dis.prev(%1), silent").arg(ToPtrString(cur_instr)));
     else if(key == Qt::Key_Down)
-        DbgCmdExec(QString("graph dis.next(%1), silent").arg(ToPtrString(cur_instr)).toUtf8().constData());
+        DbgCmdExec(QString("graph dis.next(%1), silent").arg(ToPtrString(cur_instr)));
     else if(key == Qt::Key_Left)
-        DbgCmdExec(QString("graph dis.brtrue(%1), silent").arg(ToPtrString(cur_instr)).toUtf8().constData());
+        DbgCmdExec(QString("graph dis.brtrue(%1), silent").arg(ToPtrString(cur_instr)));
     else if(key == Qt::Key_Right)
-        DbgCmdExec(QString("graph dis.brfalse(%1), silent").arg(ToPtrString(cur_instr)).toUtf8().constData());
+        DbgCmdExec(QString("graph dis.brfalse(%1), silent").arg(ToPtrString(cur_instr)));
     else if(key == Qt::Key_Return || key == Qt::Key_Enter)
     {
         //Add address to history
         if(!mHistoryLock)
             mHistory.addVaToHistory(cur_instr);
-        DbgCmdExec(QString("graph dis.branchdest(%1), silent").arg(ToPtrString(cur_instr)).toUtf8().constData());
+        DbgCmdExec(QString("graph dis.branchdest(%1), silent").arg(ToPtrString(cur_instr)));
     }
 }
 
 void DisassemblerGraphView::followDisassemblerSlot()
 {
-    DbgCmdExec(QString("disasm %1").arg(ToPtrString(this->cur_instr)).toUtf8().constData());
+    DbgCmdExec(QString("disasm %1").arg(ToPtrString(this->cur_instr)));
 }
 
 void DisassemblerGraphView::colorsUpdatedSlot()
@@ -2383,6 +2400,7 @@ void DisassemblerGraphView::colorsUpdatedSlot()
     mCipColor = ConfigColor("GraphCipColor");
     mBreakpointColor = ConfigColor("GraphBreakpointColor");
     mDisabledBreakpointColor = ConfigColor("GraphDisabledBreakpointColor");
+    mBookmarkBackgroundColor = ConfigColor("DisassemblyBookmarkBackgroundColor");
 
     fontChanged();
     loadCurrentGraph();
@@ -2447,7 +2465,7 @@ void DisassemblerGraphView::gotoExpressionSlot()
     if(mGoto->exec() == QDialog::Accepted)
     {
         duint value = DbgValFromString(mGoto->expressionText.toUtf8().constData());
-        DbgCmdExec(QString().sprintf("graph %p, silent", value).toUtf8().constData());
+        DbgCmdExec(QString().sprintf("graph %p, silent", value));
     }
 }
 
@@ -2461,7 +2479,7 @@ void DisassemblerGraphView::gotoPreviousSlot()
     if(mHistory.historyHasPrev())
     {
         mHistoryLock = true;
-        DbgCmdExecDirect(QString("graph %1, silent").arg(ToPtrString(mHistory.historyPrev())).toUtf8().constData());
+        DbgCmdExecDirect(QString("graph %1, silent").arg(ToPtrString(mHistory.historyPrev())));
         mHistoryLock = false;
     }
 }
@@ -2471,7 +2489,7 @@ void DisassemblerGraphView::gotoNextSlot()
     if(mHistory.historyHasNext())
     {
         mHistoryLock = true;
-        DbgCmdExecDirect(QString("graph %1, silent").arg(ToPtrString(mHistory.historyNext())).toUtf8().constData());
+        DbgCmdExecDirect(QString("graph %1, silent").arg(ToPtrString(mHistory.historyNext())));
         mHistoryLock = false;
     }
 }
@@ -2487,7 +2505,7 @@ void DisassemblerGraphView::toggleSyncOriginSlot()
 
 void DisassemblerGraphView::refreshSlot()
 {
-    DbgCmdExec(QString("graph %1, force").arg(ToPtrString(this->cur_instr)).toUtf8().constData());
+    DbgCmdExec(QString("graph %1, force").arg(ToPtrString(this->cur_instr)));
 }
 
 void DisassemblerGraphView::saveImageSlot()
@@ -2565,6 +2583,28 @@ restart:
     this->refreshSlot();
 }
 
+void DisassemblerGraphView::setBookmarkSlot()
+{
+    if(!DbgIsDebugging())
+        return;
+    duint wVA = this->get_cursor_pos();
+    bool result;
+    if(DbgGetBookmarkAt(wVA))
+        result = DbgSetBookmarkAt(wVA, false);
+    else
+        result = DbgSetBookmarkAt(wVA, true);
+    if(!result)
+    {
+        QMessageBox msg(QMessageBox::Critical, tr("Error!"), tr("DbgSetBookmarkAt failed!"));
+        msg.setWindowIcon(DIcon("compile-error.png"));
+        msg.setParent(this, Qt::Dialog);
+        msg.setWindowFlags(msg.windowFlags() & (~Qt::WindowContextHelpButtonHint));
+        msg.exec();
+    }
+
+    GuiUpdateAllViews();
+}
+
 void DisassemblerGraphView::xrefSlot()
 {
     if(!DbgIsDebugging())
@@ -2581,7 +2621,7 @@ void DisassemblerGraphView::xrefSlot()
         mXrefDlg = new XrefBrowseDialog(this);
     mXrefDlg->setup(wVA, [](duint addr)
     {
-        DbgCmdExec(QString("graph %1").arg(ToPtrString(addr)).toUtf8().constData());
+        DbgCmdExec(QString("graph %1").arg(ToPtrString(addr)));
     });
     mXrefDlg->showNormal();
 }
@@ -2592,8 +2632,19 @@ void DisassemblerGraphView::followActionSlot()
     if(action)
     {
         QString data = action->data().toString();
-        DbgCmdExecDirect(QString("graph %1, silent").arg(data).toUtf8().constData());
+        DbgCmdExecDirect(QString("graph %1, silent").arg(data));
     }
+}
+
+void DisassemblerGraphView::mnemonicHelpSlot()
+{
+    unsigned char data[16] = { 0xCC };
+    auto addr = this->get_cursor_pos();
+    DbgMemRead(addr, data, sizeof(data));
+    Zydis zydis;
+    zydis.Disassemble(addr, data);
+    DbgCmdExecDirect(QString("mnemonichelp %1").arg(zydis.Mnemonic().c_str()));
+    emit displayLogWidget();
 }
 
 void DisassemblerGraphView::fitToWindowSlot()

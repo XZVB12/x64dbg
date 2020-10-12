@@ -239,6 +239,8 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultColors.insert("BreakpointSummaryKeywordColor", QColor("#8B671F"));
     defaultColors.insert("BreakpointSummaryStringColor", QColor("#008000"));
     defaultColors.insert("PatchRelocatedByteHighlightColor", QColor("#0000DD"));
+    defaultColors.insert("SymbolUserTextColor", QColor("#000000"));
+    defaultColors.insert("SymbolSystemTextColor", QColor("#000000"));
     defaultColors.insert("SymbolUnloadedTextColor", QColor("#000000"));
     defaultColors.insert("SymbolLoadingTextColor", QColor("#8B671F"));
     defaultColors.insert("SymbolLoadedTextColor", QColor("#008000"));
@@ -273,7 +275,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     guiBool.insert("FpuRegistersLittleEndian", false);
     guiBool.insert("SaveColumnOrder", true);
     guiBool.insert("NoCloseDialog", false);
-    guiBool.insert("PidInHex", true);
+    guiBool.insert("PidTidInHex", false);
     guiBool.insert("SidebarWatchLabels", true);
     guiBool.insert("LoadSaveTabOrder", true);
     guiBool.insert("ShowGraphRva", false);
@@ -281,6 +283,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     guiBool.insert("ShowExitConfirmation", true);
     guiBool.insert("DisableAutoComplete", false);
     guiBool.insert("CaseSensitiveAutoComplete", false);
+    guiBool.insert("AutoRepeatOnEnter", false);
     //Named menu settings
     insertMenuBuilderBools(&guiBool, "CPUDisassembly", 50); //CPUDisassembly
     insertMenuBuilderBools(&guiBool, "CPUDump", 50); //CPUDump
@@ -320,6 +323,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "Module", 5);
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "Symbol", 5);
     AbstractTableView::setupColumnConfigDefaultValue(guiUint, "SourceView", 4);
+    AbstractTableView::setupColumnConfigDefaultValue(guiUint, "Trace", 7);
     guiUint.insert("SIMDRegistersDisplayMode", 0);
     addWindowPosConfig(guiUint, "AssembleDialog");
     addWindowPosConfig(guiUint, "AttachDialog");
@@ -329,6 +333,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     addWindowPosConfig(guiUint, "FavouriteTools");
     addWindowPosConfig(guiUint, "HexEditDialog");
     addWindowPosConfig(guiUint, "WordEditDialog");
+    addWindowPosConfig(guiUint, "SystemBreakpointScriptDialog");
     defaultUints.insert("Gui", guiUint);
 
     //uint settings
@@ -619,6 +624,7 @@ Configuration::Configuration() : QObject(), noMoreMsgbox(false)
     defaultShortcuts.insert("ActionCopyLineToLog", Shortcut({tr("Actions"), tr("Copy -> Line, To Log")}));
     defaultShortcuts.insert("ActionCopyCroppedTableToLog", Shortcut({tr("Actions"), tr("Copy -> Cropped Table, To Log")}));
     defaultShortcuts.insert("ActionCopyTableToLog", Shortcut({tr("Actions"), tr("Copy -> Table, To Log")}));
+    defaultShortcuts.insert("ActionExport", Shortcut({tr("Actions"), tr("Copy -> Export Table")}));
 
     Shortcuts = defaultShortcuts;
 
