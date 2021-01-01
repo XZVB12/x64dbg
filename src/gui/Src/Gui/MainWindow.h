@@ -83,6 +83,7 @@ public slots:
     void execTRWord();
     void execTRNone();
     void displayCpuWidget();
+    void displayCpuWidgetShowCpu();
     void displaySymbolWidget();
     void displaySourceViewWidget();
     void displayReferencesWidget();
@@ -274,6 +275,7 @@ protected:
 
 private slots:
     void setupLanguagesMenu2();
+    void updateStyle();
 
     void on_actionFaq_triggered();
     void on_actionReloadStylesheet_triggered();

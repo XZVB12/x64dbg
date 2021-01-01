@@ -58,7 +58,7 @@ CPUWidget::CPUWidget(QWidget* parent) : QWidget(parent), ui(new Ui::CPUWidget)
 
     connect(mDisas, SIGNAL(selectionChanged(dsint)), mInfo, SLOT(disasmSelectionChanged(dsint)));
 
-    mDump = new CPUMultiDump(mDisas, 5, 0); //dump widget
+    mDump = new CPUMultiDump(mDisas, 5, this); //dump widget
     ui->mBotLeftFrameLayout->addWidget(mDump);
 
     mGeneralRegs = new CPURegistersView(this);
@@ -83,6 +83,7 @@ CPUWidget::CPUWidget(QWidget* parent) : QWidget(parent), ui(new Ui::CPUWidget)
 
     mStack = new CPUStack(mDump, 0); //stack widget
     ui->mBotRightFrameLayout->addWidget(mStack);
+    connect(mDisas, SIGNAL(selectionChanged(dsint)), mStack, SLOT(disasmSelectionChanged(dsint)));
 
     // load column config
     mDisas->loadColumnFromConfig("CPUDisassembly");

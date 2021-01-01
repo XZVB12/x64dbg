@@ -296,7 +296,7 @@ MainWindow::MainWindow(QWidget* parent)
     connect(ui->actionRunSelection, SIGNAL(triggered()), this, SLOT(runSelection()));
     connect(ui->actionRunExpression, SIGNAL(triggered(bool)), this, SLOT(runExpression()));
     makeCommandAction(ui->actionHideDebugger, "hide");
-    connect(ui->actionCpu, SIGNAL(triggered()), this, SLOT(displayCpuWidget()));
+    connect(ui->actionCpu, SIGNAL(triggered()), this, SLOT(displayCpuWidgetShowCpu()));
     connect(ui->actionSymbolInfo, SIGNAL(triggered()), this, SLOT(displaySymbolWidget()));
     connect(ui->actionModules, SIGNAL(triggered()), this, SLOT(displaySymbolWidget()));
     connect(ui->actionSource, SIGNAL(triggered()), this, SLOT(displaySourceViewWidget()));
@@ -360,6 +360,7 @@ MainWindow::MainWindow(QWidget* parent)
 
     connect(mTabWidget, SIGNAL(tabMovedTabWidget(int, int)), this, SLOT(tabMovedSlot(int, int)));
     connect(Config(), SIGNAL(shortcutsUpdated()), this, SLOT(refreshShortcuts()));
+    connect(Config(), SIGNAL(colorsUpdated()), this, SLOT(updateStyle()));
 
     // Menu stuff
     actionManageFavourites = nullptr;
@@ -727,6 +728,10 @@ void MainWindow::clearTabWidget()
 
 void MainWindow::saveWindowSettings()
 {
+    // Save favourite toolbar
+    BridgeSettingSetUint("Main Window Settings", "FavToolbarVisible", mFavouriteToolbar->isVisible() ? 1 : 0);
+    removeToolBar(mFavouriteToolbar); //Remove it before saving main window settings, otherwise it crashes
+
     // Main Window settings
     BridgeSettingSet("Main Window Settings", "Geometry", saveGeometry().toBase64().data());
     BridgeSettingSet("Main Window Settings", "State", saveState().toBase64().data());
@@ -745,11 +750,6 @@ void MainWindow::saveWindowSettings()
             BridgeSettingSet("Tab Window Settings", mWidgetList[i].nativeName.toUtf8().constData(),
                              mWidgetList[i].widget->parentWidget()->saveGeometry().toBase64().data());
     }
-
-    // Save favourite toolbar
-    BridgeSettingSetUint("Main Window Settings", "FavToolbarPositionX", mFavouriteToolbar->x());
-    BridgeSettingSetUint("Main Window Settings", "FavToolbarPositionY", mFavouriteToolbar->y());
-    BridgeSettingSetUint("Main Window Settings", "FavToolbarVisible", mFavouriteToolbar->isVisible() ? 1 : 0);
 
     mCpuWidget->saveWindowSettings();
     mSymbolView->saveWindowSettings();
@@ -796,11 +796,9 @@ void MainWindow::loadWindowSettings()
     }
 
     // Load favourite toolbar
-    duint posx = 0, posy = 0, isVisible = 0;
-    BridgeSettingGetUint("Main Window Settings", "FavToolbarPositionX", &posx);
-    BridgeSettingGetUint("Main Window Settings", "FavToolbarPositionY", &posy);
+    duint isVisible = 0;
     BridgeSettingGetUint("Main Window Settings", "FavToolbarVisible", &isVisible);
-    mFavouriteToolbar->move(posx, posy);
+    addToolBar(mFavouriteToolbar);
     mFavouriteToolbar->setVisible(isVisible == 1);
 
     mCpuWidget->loadWindowSettings();
@@ -1084,10 +1082,17 @@ void MainWindow::updateWindowTitleSlot(QString filename)
     }
 }
 
-void MainWindow::displayCpuWidget()
+// Used by View->CPU
+void MainWindow::displayCpuWidgetShowCpu()
 {
     showQWidgetTab(mCpuWidget);
     mCpuWidget->setDisasmFocus();
+}
+
+// GuiShowCpu()
+void MainWindow::displayCpuWidget()
+{
+    showQWidgetTab(mCpuWidget);
 }
 
 void MainWindow::displaySymbolWidget()
@@ -2314,4 +2319,12 @@ void MainWindow::on_actionDefaultTheme_triggered()
     //Config()->writeFonts();
     // Remove custom colors
     BridgeSettingSet("Colors", "CustomColorCount", nullptr);
+}
+
+void MainWindow::updateStyle()
+{
+    // Set configured link color
+    QPalette appPalette = QApplication::palette();
+    appPalette.setColor(QPalette::Link, ConfigColor("LinkColor"));
+    QApplication::setPalette(appPalette);
 }
